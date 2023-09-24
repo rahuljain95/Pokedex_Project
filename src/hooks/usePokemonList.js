@@ -8,66 +8,48 @@ function usePokemonList() {
         pokedexUrl: 'https://pokeapi.co/api/v2/pokemon',
         nextUrl: '',
         prevUrl: '',
-        type: ''
     });
 
-    async function downloadPokemons(){
+    async function downloadPokemons() {
 
-        if(pokemonListState.type) {
-            const response = await axios.get(`https://pokeapi.co/api/v2/type/${pokemonListState.type}`);
+            setPokemonListState((state) => ({ ...state, isLoading: true}));
+            const response = await axios.get(pokemonListState.pokedexUrl); // this downloads list of 20 pokemons
+
+            const pokemonResults = response.data.results;  // we get the array of pokemons from result
 
             setPokemonListState((state) => ({
                 ...state, 
-                pokemonList: response.data.pokemon
+                nextUrl: response.data.next, 
+                prevUrl: response.data.previous
             }));
-         
-        }
-        else {
+            const pokemonResultPromise = pokemonResults.map((pokemon) => axios.get(pokemon.url));
 
-            setPokemonListState((state) => ({ ...state, isLoading: true}));
-        const response = await axios.get(pokemonListState.pokedexUrl); //this downloads list of 20 pokemons
+            // passing that promise array to axios.all
+            const pokemonData = await axios.all(pokemonResultPromise); // array of 20 pokemon detailed data
 
-        const pokemonResults = response.data.results; //we get the array of pokemons from result
-        console.log("response ise", response.data.pokemon);
-        console.log(pokemonListState)
+            // now iterate on the data of each pokemon, and extract id, name, image, types
 
-        setPokemonListState((state) => ({
-            ...state, 
-            nextUrl: response.data.next, 
-            prevUrl: response.data.previous
-        }));
-        const pokemonResultPromise = pokemonResults.map((pokemon) => axios.get(pokemon.url));
-
-        //passing that promise array to axios.all
-        const pokemonData = await axios.all(pokemonResultPromise); //array of 20 pokemon detailed data
-        console.log(pokemonData);
-
-        //now iterate on the data of each pokemon, and extract id, name, image, types
-        const pokeListResult  = pokemonData.map((pokeData) => {
-            const pokemon = pokeData.data;
-            return {
-                id: pokemon.id,
-                name: pokemon.name,
-                image: (pokemon.sprites.other) ? pokemon.sprites.other.dream_world.front_default : pokemon.sprites.front_shiny,
-                types: pokemon.types
-            }
-        });
-        console.log(pokeListResult);
-        
-        setPokemonListState((state) => ({
-            ...state, 
-            pokemonList: pokeListResult, 
-            isLoading: false
-        }));
+            const pokeListResult = pokemonData.map((pokeData) => {
+                const pokemon = pokeData.data;
+                return {
+                    id: pokemon.id,
+                    name: pokemon.name, 
+                    image: (pokemon.sprites.other) ? pokemon.sprites.other.dream_world.front_default : pokemon.sprites.front_shiny, 
+                    types: pokemon.types
+                }
+            });
+            setPokemonListState((state) => ({
+                ...state,
+                pokemonList: pokeListResult, 
+                isLoading: false
+            }));
     }
-    }
-
 
     useEffect(() => {
         downloadPokemons();
     }, [pokemonListState.pokedexUrl]);
 
-    return [ pokemonListState, setPokemonListState ];
+    return [pokemonListState, setPokemonListState];
 }
 
 export default usePokemonList;
